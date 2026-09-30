@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+from app.core.validation import normalize_required_text
 
 
 class DepartmentCreateRequest(BaseModel):
@@ -50,6 +52,12 @@ class PetitionTransitionRequest(BaseModel):
 
 class UrgeRequest(BaseModel):
     reason: str = Field(min_length=1, max_length=1000)
+
+    @field_validator("reason")
+    @classmethod
+    def normalize_reason(cls, value: str) -> str:
+        # 进入接口即统一去除首尾空白；纯空白串在此明确拒绝，避免空白说明流入领域逻辑
+        return normalize_required_text(value, field_name="催办原因", max_length=1000)
 
 
 class MetricWindowRequest(BaseModel):

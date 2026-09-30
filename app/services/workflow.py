@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from app.core.clock import Clock, SystemClock, to_storage
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.core.security import Principal
+from app.core.validation import normalize_required_text
 from app.repositories.business import PetitionRepository
 from app.services.access import DataScope
 from app.services.audit import AuditContext, AuditService
@@ -93,6 +94,9 @@ class PetitionWorkflowService:
         return after
 
     def urge(self, principal: Principal, petition_id: int, reason: str) -> dict:
+        # 与接口层共用同一空白处理：先规范化并拒绝空内容，再执行任何查询或写入，
+        # 保证空白说明不会产生催办台账、流水或审计副作用。
+        normalized_reason = normalize_required_text(reason, field_name="催办原因", max_length=1000)
         petition = self.petitions.detail(petition_id)
         if petition is None:
             raise NotFoundError("信访件不存在")
@@ -103,7 +107,7 @@ class PetitionWorkflowService:
         now = to_storage(self.clock.now())
         cursor = self.connection.execute(
             "INSERT INTO petition_urges(petition_id,reason,operator,created_at) VALUES(?,?,?,?)",
-            (petition_id, reason.strip(), principal.display_name, now),
+            (petition_id, normalized_reason, principal.display_name, now),
         )
-        self.petitions.append_flow(petition_id, "催办", principal.display_name, reason.strip(), now)
+        self.petitions.append_flow(petition_id, "催办", principal.display_name, normalized_reason, now)
         return dict(self.connection.execute("SELECT * FROM petition_urges WHERE id=?", (cursor.lastrowid,)).fetchone())

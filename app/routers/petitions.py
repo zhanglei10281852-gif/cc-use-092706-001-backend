@@ -2,6 +2,7 @@ import sqlite3
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 from datetime import datetime, timedelta
+from app.core.validation import normalize_required_text
 from app.database import get_connection
 from app.models import (
     PetitionCreate, PetitionAssign, PetitionProcess, PetitionReview,
@@ -327,6 +328,7 @@ def complete_review(petition_id: int, review_result: str, operator: str = "上�
 
 @router.post("/{petition_id}/urge")
 def urge_petition(petition_id: int, data: PetitionUrgeCreate):
+    reason = normalize_required_text(data.reason, field_name="催办原因", max_length=1000)
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT status FROM petitions WHERE id = ?", (petition_id,))
@@ -339,10 +341,10 @@ def urge_petition(petition_id: int, data: PetitionUrgeCreate):
     cursor.execute(
         """INSERT INTO petition_urges (petition_id, reason, operator)
            VALUES (?, ?, ?)""",
-        (petition_id, data.reason, data.operator)
+        (petition_id, reason, data.operator)
     )
     conn.commit()
-    add_flow_record(petition_id, "催办", data.operator, data.reason)
+    add_flow_record(petition_id, "催办", data.operator, reason)
     return {"message": "催办成功"}
 
 
