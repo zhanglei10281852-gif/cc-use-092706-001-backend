@@ -93,6 +93,9 @@ class PetitionWorkflowService:
         return after
 
     def urge(self, principal: Principal, petition_id: int, reason: str) -> dict:
+        reason = reason.strip()
+        if not reason:
+            raise ValidationError("催办原因不能为空")
         petition = self.petitions.detail(petition_id)
         if petition is None:
             raise NotFoundError("信访件不存在")
@@ -103,7 +106,7 @@ class PetitionWorkflowService:
         now = to_storage(self.clock.now())
         cursor = self.connection.execute(
             "INSERT INTO petition_urges(petition_id,reason,operator,created_at) VALUES(?,?,?,?)",
-            (petition_id, reason.strip(), principal.display_name, now),
+            (petition_id, reason, principal.display_name, now),
         )
-        self.petitions.append_flow(petition_id, "催办", principal.display_name, reason.strip(), now)
+        self.petitions.append_flow(petition_id, "催办", principal.display_name, reason, now)
         return dict(self.connection.execute("SELECT * FROM petition_urges WHERE id=?", (cursor.lastrowid,)).fetchone())

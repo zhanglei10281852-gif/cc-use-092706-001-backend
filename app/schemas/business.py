@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class DepartmentCreateRequest(BaseModel):
@@ -50,6 +50,14 @@ class PetitionTransitionRequest(BaseModel):
 
 class UrgeRequest(BaseModel):
     reason: str = Field(min_length=1, max_length=1000)
+
+    @field_validator("reason")
+    @classmethod
+    def normalize_reason(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("催办原因不能为空")
+        return normalized
 
 
 class MetricWindowRequest(BaseModel):
